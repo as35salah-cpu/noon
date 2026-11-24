@@ -1,0 +1,1587 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>منظومة اللوجستيات الذكية وإدارة التغليف والمخازن في شركة نون (Noon)</title>
+
+  <!-- استيراد الخطوط العربية الاحترافية من Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@700;800;900&family=Changa:wght@700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Readex+Pro:wght@600;700&family=Tajawal:wght@500;700;800&display=swap" rel="stylesheet" />
+
+  <!-- مكتبة Tailwind CSS للتنسيق السريع والمتجاوب -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- مكتبة Chart.js للمخططات البيانية الحية -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            noonYellow: '#FEEE00',
+            noonBlack: '#111111',
+            noonSlate: '#1E1E24',
+            techBlue: '#00A8E8',
+          },
+          fontFamily: {
+            heading: ['Changa', 'Cairo', 'sans-serif'],
+            cairo: ['Cairo', 'sans-serif'],
+            body: ['IBM Plex Sans Arabic', 'Tajawal', 'sans-serif'],
+            tajawal: ['Tajawal', 'sans-serif'],
+            kpi: ['Readex Pro', 'Cairo', 'sans-serif'],
+          }
+        }
+      }
+    };
+  </script>
+
+  <style>
+    :root {
+      --noon-yellow: #FEEE00;
+      --noon-black: #111111;
+      --noon-slate: #1E1E24;
+      --tech-blue: #00A8E8;
+    }
+
+    * {
+      box-sizing: border-box;
+      user-select: none;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background-color: var(--noon-black);
+      color: #FFFFFF;
+      font-family: 'IBM Plex Sans Arabic', 'Tajawal', sans-serif;
+    }
+
+    /* خلفية شبكية هندسية (Isometric Tech Grid) */
+    .isometric-bg {
+      background-color: #111111;
+      background-image:
+        radial-gradient(circle at 82% 20%, rgba(254, 238, 0, 0.08) 0%, transparent 45%),
+        radial-gradient(circle at 18% 82%, rgba(0, 168, 232, 0.09) 0%, transparent 45%),
+        linear-gradient(30deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+        linear-gradient(150deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+      background-size: 100% 100%, 100% 100%, 56px 32px, 56px 32px;
+    }
+
+    /* البطاقات الزجاجية الفاخرة (Glassmorphism) */
+    .glass-card {
+      background: linear-gradient(145deg, rgba(30, 30, 36, 0.82), rgba(20, 20, 25, 0.92));
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.09);
+      box-shadow: 0 18px 40px -15px rgba(0, 0, 0, 0.75);
+      transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.3s ease, box-shadow 0.3s ease;
+      transform-style: preserve-3d;
+    }
+
+    .glass-card:hover {
+      border-color: rgba(254, 238, 0, 0.45);
+      box-shadow: 0 22px 48px -12px rgba(254, 238, 0, 0.14);
+    }
+
+    .glass-card-blue:hover {
+      border-color: rgba(0, 168, 232, 0.55);
+      box-shadow: 0 22px 48px -12px rgba(0, 168, 232, 0.18);
+    }
+
+    /* خطوط العناوين والأرقام */
+    .title-font {
+      font-family: 'Changa', 'Cairo', sans-serif;
+    }
+
+    .kpi-number {
+      font-family: 'Readex Pro', 'Cairo', sans-serif;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* نظام انتقال الشرائح السينمائي */
+    .slide {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      padding: 4.5rem 2.25rem 4.75rem 2.25rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      opacity: 0;
+      visibility: hidden;
+      transform: scale(0.95) translateY(18px);
+      transition: opacity 0.55s cubic-bezier(0.22, 1, 0.36, 1),
+                  transform 0.55s cubic-bezier(0.22, 1, 0.36, 1),
+                  visibility 0.55s;
+      z-index: 1;
+    }
+
+    .slide.active {
+      opacity: 1;
+      visibility: visible;
+      transform: scale(1) translateY(0);
+      z-index: 10;
+    }
+
+    .slide.prev {
+      opacity: 0;
+      visibility: hidden;
+      transform: scale(1.03) translateY(-18px);
+    }
+
+    /* حركات طفو وتفاعل المجسمات ثلاثية الأبعاد */
+    @keyframes float3D {
+      0%, 100% {
+        transform: translateY(0px) rotate(0deg);
+      }
+      50% {
+        transform: translateY(-14px) rotate(1.2deg);
+      }
+    }
+
+    @keyframes float3DDelayed {
+      0%, 100% {
+        transform: translateY(0px) rotate(0deg);
+      }
+      50% {
+        transform: translateY(-10px) rotate(-1.5deg);
+      }
+    }
+
+    @keyframes laserSweep {
+      0%, 100% {
+        transform: translateY(-14px) scaleX(0.96);
+        opacity: 0.72;
+      }
+      50% {
+        transform: translateY(16px) scaleX(1.04);
+        opacity: 1;
+      }
+    }
+
+    @keyframes tapeRoll {
+      0%, 100% {
+        transform: translateX(0px) translateY(0px);
+      }
+      50% {
+        transform: translateX(-12px) translateY(6px);
+      }
+    }
+
+    @keyframes pulseGlow {
+      0%, 100% {
+        opacity: 0.45;
+        transform: scale(0.96);
+      }
+      50% {
+        opacity: 0.9;
+        transform: scale(1.04);
+      }
+    }
+
+    .animate-float-3d {
+      animation: float3D 4.6s ease-in-out infinite;
+    }
+
+    .animate-float-3d-slow {
+      animation: float3DDelayed 5.8s ease-in-out infinite;
+    }
+
+    .animate-laser {
+      animation: laserSweep 2.2s ease-in-out infinite;
+    }
+
+    .animate-tape {
+      animation: tapeRoll 3.4s ease-in-out infinite;
+    }
+
+    .animate-glow {
+      animation: pulseGlow 3.6s ease-in-out infinite;
+    }
+
+    /* شريط التمرير المخفي للشاشات الصغيرة جداً فقط عند الضرورة */
+    .slide-inner {
+      max-width: 1320px;
+      width: 100%;
+      margin: 0 auto;
+      max-height: 100%;
+    }
+
+    /* شريط التقدم العلوي */
+    #top-progress-bar {
+      box-shadow: 0 0 16px rgba(254, 238, 0, 0.85);
+      transition: width 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    /* فهرس الشرائح الجانبي */
+    #slide-drawer {
+      transition: transform 0.38s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.35s ease;
+    }
+
+    @media (max-width: 768px) {
+      .slide {
+        padding: 4.1rem 1rem 4.5rem 1rem;
+        overflow-y: auto;
+        justify-content: flex-start;
+      }
+    }
+  </style>
+</head>
+<body class="isometric-bg antialiased selection:bg-noonYellow selection:text-noonBlack">
+
+  <!-- شريط التقدم العلوي المتوهج -->
+  <div class="fixed top-0 right-0 left-0 h-1.5 bg-white/10 z-50">
+    <div id="top-progress-bar" class="h-full bg-noonYellow" style="width: 12.5%;"></div>
+  </div>
+
+  <!-- الشريط العلوي للتحكم والهوية -->
+  <header class="fixed top-1.5 right-0 left-0 z-40 px-4 md:px-8 py-2.5 flex items-center justify-between pointer-events-none">
+    <!-- شعار نون وعنوان الشريحة الحالية -->
+    <div class="flex items-center gap-3 pointer-events-auto">
+      <div class="flex items-center gap-2 bg-noonYellow text-noonBlack px-3.5 py-1.5 rounded-xl font-black tracking-tight shadow-lg shadow-noonYellow/20">
+        <span class="w-2.5 h-2.5 rounded-full bg-noonBlack animate-pulse"></span>
+        <span class="font-cairo text-base md:text-lg leading-none" dir="ltr">noon</span>
+        <span class="text-xs font-bold border-r border-noonBlack/30 pr-2 mr-0.5 hidden sm:inline">اللوجستيات الذكية</span>
+      </div>
+
+      <div id="header-slide-pill" class="hidden md:flex items-center gap-2 bg-noonSlate/90 border border-white/10 backdrop-blur-md px-3.5 py-1.5 rounded-xl text-xs font-semibold text-gray-200">
+        <span class="w-2 h-2 rounded-full bg-techBlue"></span>
+        <span id="current-slide-label">الغلاف الرئيسي</span>
+      </div>
+    </div>
+
+    <!-- أدوات العرض: رقم الشريحة، الفهرس، ملء الشاشة -->
+    <div class="flex items-center gap-2 pointer-events-auto">
+      <div class="bg-noonSlate/90 border border-white/10 backdrop-blur-md px-3.5 py-1.5 rounded-xl text-xs md:text-sm font-bold text-noonYellow kpi-number">
+        <span id="slide-counter">1 / 8</span>
+      </div>
+
+      <button id="btn-drawer" onclick="toggleDrawer()" title="فهرس الشرائح" class="bg-noonSlate/90 hover:bg-noonYellow hover:text-noonBlack border border-white/10 text-white px-3 py-1.5 rounded-xl text-xs md:text-sm font-bold transition-all flex items-center gap-1.5 cursor-pointer">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h10" />
+        </svg>
+        <span class="hidden sm:inline">الفهرس</span>
+      </button>
+
+      <button id="btn-fullscreen" onclick="toggleFullscreen()" title="ملء الشاشة" class="bg-noonSlate/90 hover:bg-techBlue hover:text-noonBlack border border-white/10 text-white p-2 rounded-xl transition-all cursor-pointer">
+        <svg id="icon-fs-enter" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 8V4h4M20 8V4h-4M4 16v4h4M20 16v4h-4" />
+        </svg>
+        <svg id="icon-fs-exit" class="w-4 h-4 hidden" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5" />
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- قائمة فهرس الشرائح المنبثقة -->
+  <aside id="slide-drawer" class="fixed top-0 left-0 h-full w-80 max-w-[88vw] bg-[#16161B]/95 backdrop-blur-xl border-r border-white/15 z-50 p-5 flex flex-col justify-between -translate-x-full opacity-0 pointer-events-none">
+    <div>
+      <div class="flex items-center justify-between pb-4 border-b border-white/10">
+        <div class="flex items-center gap-2">
+          <span class="w-3 h-3 rounded-sm bg-noonYellow"></span>
+          <h3 class="title-font text-lg font-extrabold text-white">فهرس شرائح العرض</h3>
+        </div>
+        <button onclick="toggleDrawer(false)" class="p-1.5 rounded-lg bg-white/5 hover:bg-white/15 text-gray-300 cursor-pointer">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      <nav id="drawer-list" class="mt-4 space-y-2"></nav>
+    </div>
+
+    <div class="pt-4 border-t border-white/10 text-xs text-gray-400 space-y-1">
+      <p class="font-bold text-noonYellow">إعداد: أحمد صلاح</p>
+      <p>تخصص: نظم معلومات الأعمال (<span dir="ltr">BIS</span>)</p>
+      <p class="text-[11px] text-gray-500 pt-1">استخدم الأسهم أو السحب للتنقل السريع</p>
+    </div>
+  </aside>
+
+  <!-- حاوية الشرائح الثمانية -->
+  <main id="presentation-deck" class="relative w-full h-full overflow-hidden">
+
+    <!-- ========================================================= -->
+    <!-- الشريحة 1: الغلاف (Cover Slide) -->
+    <!-- ========================================================= -->
+    <section class="slide active" data-title="الغلاف الرئيسي">
+      <div class="slide-inner grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+        <!-- النصوص وبيانات المُعد -->
+        <div class="lg:col-span-7 space-y-5 z-10 text-right">
+          <div class="inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full bg-noonYellow/15 border border-noonYellow/40 text-noonYellow text-xs md:text-sm font-bold">
+            <span class="w-2 h-2 rounded-full bg-noonYellow animate-ping"></span>
+            <span>دراسة تطبيقية في سلاسل الإمداد الذكية ونظم المعلومات</span>
+          </div>
+
+          <h1 class="title-font text-3xl sm:text-4xl lg:text-[2.85rem] font-extrabold leading-[1.22] text-white">
+            منظومة اللوجستيات الذكية وإدارة التغليف والمخازن في شركة
+            <span class="text-noonYellow inline-block">نون (<span dir="ltr">Noon</span>)</span>
+          </h1>
+
+          <p class="text-gray-300 text-base md:text-lg leading-relaxed max-w-2xl font-medium">
+            تحليل شامل للبنية التحتية الرقمية، وأنظمة إدارة المستودعات (<span dir="ltr" class="text-techBlue font-semibold">WMS</span>)، وتقنيات التغليف الذكي، وتقليص زمن التوصيل الفائق في أكبر منظومة تجارة إلكترونية بالشرق الأوسط.
+          </p>
+
+          <!-- بطاقة بيانات المُعد -->
+          <div class="glass-card rounded-2xl p-4 sm:p-5 border-r-4 border-r-noonYellow max-w-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div class="flex items-center gap-3.5">
+              <div class="w-12 h-12 rounded-xl bg-noonYellow text-noonBlack flex items-center justify-center font-black text-xl title-font shadow-lg shadow-noonYellow/20 shrink-0">
+                أ.ص
+              </div>
+              <div>
+                <div class="text-xs text-gray-400 font-semibold">إعداد وتقديم الباحث</div>
+                <div class="text-lg md:text-xl font-extrabold text-white title-font">أحمد صلاح</div>
+              </div>
+            </div>
+
+            <div class="sm:border-r sm:border-white/10 sm:pr-4">
+              <div class="text-xs text-gray-400 font-semibold">التخصص الأكاديمي</div>
+              <div class="text-sm md:text-base font-bold text-techBlue">
+                نظم معلومات الأعمال (<span dir="ltr">BIS</span>)
+              </div>
+            </div>
+          </div>
+
+          <!-- أزرار سريعة لبدء العرض -->
+          <div class="flex flex-wrap items-center gap-3 pt-1">
+            <button onclick="nextSlide()" class="bg-noonYellow hover:bg-yellow-300 text-noonBlack font-extrabold px-6 py-3 rounded-xl text-sm md:text-base transition-all shadow-lg shadow-noonYellow/25 flex items-center gap-2 cursor-pointer">
+              <span>ابدأ استكشاف المنظومة</span>
+              <svg class="w-5 h-5 rotate-180" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+              </svg>
+            </button>
+            <button onclick="goToSlide(5)" class="bg-noonSlate hover:bg-white/10 border border-white/15 text-white font-bold px-5 py-3 rounded-xl text-sm md:text-base transition-all cursor-pointer">
+              لوحة المؤشرات الحية
+            </button>
+          </div>
+        </div>
+
+        <!-- مجسمات 3D لصناديق شحن نون الصفراء (Isometric SVG متحركة) -->
+        <div class="lg:col-span-5 flex items-center justify-center relative">
+          <div class="absolute w-72 h-72 rounded-full bg-noonYellow/15 blur-3xl animate-glow pointer-events-none"></div>
+          <div class="absolute w-56 h-56 rounded-full bg-techBlue/15 blur-3xl -bottom-6 left-6 pointer-events-none"></div>
+
+          <svg viewBox="0 0 460 420" class="w-full max-w-[440px] h-auto drop-shadow-2xl overflow-visible" aria-label="مجسم ثلاثي الأبعاد لصناديق شحن نون الصفراء">
+            <defs>
+              <!-- تدرجات الصندوق الرئيسي الكبير -->
+              <linearGradient id="boxTopYellow" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#FFF55A" />
+                <stop offset="100%" stop-color="#FEEE00" />
+              </linearGradient>
+              <linearGradient id="boxLeftYellow" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stop-color="#E5D500" />
+                <stop offset="100%" stop-color="#B8AA00" />
+              </linearGradient>
+              <linearGradient id="boxRightYellow" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#F5E300" />
+                <stop offset="100%" stop-color="#C9B900" />
+              </linearGradient>
+              <!-- تدرج شريط التغليف الأسود -->
+              <linearGradient id="tapeDark" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#27272E" />
+                <stop offset="100%" stop-color="#111111" />
+              </linearGradient>
+              <!-- تدرج الصندوق التقني الثانوي -->
+              <linearGradient id="boxSlateTop" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#32323D" />
+                <stop offset="100%" stop-color="#1E1E24" />
+              </linearGradient>
+              <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+                <feGaussianBlur in="SourceAlpha" stdDeviation="12" />
+                <feOffset dx="0" dy="18" result="offsetblur" />
+                <feComponentTransfer>
+                  <feFuncA type="linear" slope="0.55" />
+                </feComponentTransfer>
+                <feMerge>
+                  <feMergeNode />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
+            </defs>
+
+            <!-- شبكة أرضية ثلاثية الأبعاد تحت الصناديق -->
+            <g opacity="0.35">
+              <polygon points="230,275 410,340 230,405 50,340" fill="none" stroke="#FEEE00" stroke-width="1.2" stroke-dasharray="5 5" />
+              <polygon points="230,295 365,342 230,390 95,342" fill="rgba(254,238,0,0.06)" stroke="#00A8E8" stroke-width="1" />
+            </g>
+
+            <!-- الصندوق الخلفي الصغير (طافٍ بتأخير) -->
+            <g class="animate-float-3d-slow" filter="url(#softShadow)">
+              <!-- ظل -->
+              <polygon points="345,175 415,205 345,235 275,205" fill="rgba(0,0,0,0.45)" />
+              <!-- الوجه العلوي -->
+              <polygon points="345,95 410,125 345,155 280,125" fill="url(#boxSlateTop)" stroke="#00A8E8" stroke-width="1.2" />
+              <!-- الوجه الأيسر -->
+              <polygon points="280,125 345,155 345,212 280,182" fill="#18181F" stroke="#00A8E8" stroke-width="0.8" />
+              <!-- الوجه الأيمن -->
+              <polygon points="410,125 345,155 345,212 410,182" fill="#23232C" stroke="#00A8E8" stroke-width="0.8" />
+              <!-- شريط أصفر على الصندوق الداكن -->
+              <polygon points="312,110 377,140 385,136 320,106" fill="#FEEE00" />
+              <polygon points="377,140 385,136 385,165 377,169" fill="#D4C500" />
+              <!-- شارة Express -->
+              <circle cx="345" cy="125" r="6" fill="#00A8E8" />
+            </g>
+
+            <!-- الصندوق الرئيسي الكبير لشركة نون -->
+            <g class="animate-float-3d" filter="url(#softShadow)">
+              <!-- الوجه العلوي -->
+              <polygon points="210,115 335,172 210,229 85,172" fill="url(#boxTopYellow)" />
+              <!-- الوجه الأيسر (الظل) -->
+              <polygon points="85,172 210,229 210,348 85,291" fill="url(#boxLeftYellow)" />
+              <!-- الوجه الأيمن (الإضاءة المتوسطة) -->
+              <polygon points="335,172 210,229 210,348 335,291" fill="url(#boxRightYellow)" />
+
+              <!-- حواف إضاءة حادة لإبراز البعد الثالث -->
+              <polyline points="85,172 210,229 335,172" fill="none" stroke="#FFFCE0" stroke-width="2" />
+              <line x1="210" y1="229" x2="210" y2="348" stroke="#FFFCE0" stroke-width="1.8" />
+
+              <!-- شريط التغليف الأسود المميز لنون عبر منتصف الصندوق -->
+              <polygon points="145,143 270,200 282,194 157,137" fill="url(#tapeDark)" />
+              <polygon points="270,200 282,194 282,248 270,254" fill="#16161B" />
+              <!-- خط أصفر رفيع وسط الشريط اللاصق -->
+              <line x1="151" y1="140" x2="276" y2="197" stroke="#FEEE00" stroke-width="1.5" stroke-dasharray="6 4" />
+
+              <!-- ملصق الشحن الذكي (Shipping Label + QR) على الوجه الأيسر -->
+              <g transform="matrix(1, 0.455, 0, 1, 108, 212)">
+                <rect x="0" y="0" width="76" height="48" rx="4" fill="#FFFFFF" opacity="0.95" />
+                <rect x="6" y="6" width="22" height="22" rx="2" fill="#111111" />
+                <rect x="9" y="9" width="7" height="7" fill="#FEEE00" />
+                <rect x="18" y="18" width="7" height="7" fill="#00A8E8" />
+                <line x1="34" y1="10" x2="68" y2="10" stroke="#111111" stroke-width="3" stroke-linecap="round" />
+                <line x1="34" y1="18" x2="58" y2="18" stroke="#00A8E8" stroke-width="2.5" stroke-linecap="round" />
+                <line x1="34" y1="26" x2="64" y2="26" stroke="#666666" stroke-width="2" stroke-linecap="round" />
+                <!-- خطوط باركود أسفل الملصق -->
+                <path d="M8,35 v8 M12,35 v8 M15,35 v8 M20,35 v8 M24,35 v8 M29,35 v8 M33,35 v8 M38,35 v8 M43,35 v8 M47,35 v8 M53,35 v8 M58,35 v8 M63,35 v8 M68,35 v8" stroke="#111111" stroke-width="1.8" />
+              </g>
+
+              <!-- شعار noon المطبوع على الوجه الأيمن -->
+              <g transform="matrix(1, -0.455, 0, 1, 232, 274)">
+                <rect x="0" y="0" width="82" height="32" rx="6" fill="#111111" />
+                <text x="41" y="22" text-anchor="middle" fill="#FEEE00" font-family="Cairo, sans-serif" font-weight="900" font-size="19" letter-spacing="1">noon</text>
+              </g>
+            </g>
+
+            <!-- الصندوق الأمامي الصغير (Express Box) -->
+            <g class="animate-float-3d-slow" filter="url(#softShadow)">
+              <polygon points="92,262 152,290 92,318 32,290" fill="url(#boxTopYellow)" />
+              <polygon points="32,290 92,318 92,374 32,346" fill="url(#boxLeftYellow)" />
+              <polygon points="152,290 92,318 92,374 152,346" fill="url(#boxRightYellow)" />
+              <polygon points="60,276 120,304 127,300 67,272" fill="#111111" />
+              <circle cx="122" cy="332" r="9" fill="#00A8E8" />
+              <path d="M118,332 l3,3 l5,-6" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" />
+            </g>
+
+            <!-- نقاط بيانات تقنية طافية حول الصناديق -->
+            <g class="animate-pulse">
+              <rect x="34" y="102" width="96" height="28" rx="8" fill="#1E1E24" stroke="#00A8E8" stroke-width="1.2" />
+              <circle cx="48" cy="116" r="4" fill="#00A8E8" />
+              <text x="90" y="120" text-anchor="middle" fill="#FFFFFF" font-family="Readex Pro, sans-serif" font-size="11" font-weight="700">WMS ACTIVE</text>
+
+              <rect x="320" y="298" width="108" height="28" rx="8" fill="#1E1E24" stroke="#FEEE00" stroke-width="1.2" />
+              <circle cx="334" cy="312" r="4" fill="#FEEE00" />
+              <text x="380" y="316" text-anchor="middle" fill="#FEEE00" font-family="Readex Pro, sans-serif" font-size="11" font-weight="700">99.9% ACCURACY</text>
+            </g>
+          </svg>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================= -->
+    <!-- الشريحة 2: نظرة عامة على شركة نون (Overview) -->
+    <!-- ========================================================= -->
+    <section class="slide" data-title="نظرة عامة على نون">
+      <div class="slide-inner space-y-6">
+        <!-- ترويسة الشريحة -->
+        <div class="flex flex-col md:flex-row md:items-end justify-between gap-3 border-b border-white/10 pb-4">
+          <div>
+            <span class="text-noonYellow text-xs md:text-sm font-extrabold tracking-wide uppercase">01 | التحول الرقمي والريادة الإقليمية</span>
+            <h2 class="title-font text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white mt-1">
+              نظرة عامة على منظومة <span class="text-noonYellow">نون (<span dir="ltr">Noon</span>)</span>
+            </h2>
+          </div>
+          <p class="text-gray-400 text-xs md:text-sm max-w-md">
+            كيف تحولت منصة محلية ناشئة إلى أضخم بنية تحتية للتجارة الإلكترونية والخدمات اللوجستية في الشرق الأوسط.
+          </p>
+        </div>
+
+        <!-- بطاقات المؤشرات الرئيسية (KPIs) -->
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div class="glass-card rounded-2xl p-4 sm:p-5 relative overflow-hidden">
+            <div class="absolute top-0 left-0 w-16 h-16 bg-noonYellow/10 rounded-br-3xl"></div>
+            <div class="text-xs text-gray-400 font-semibold">الانتشار الإقليمي</div>
+            <div class="kpi-number text-2xl sm:text-3xl font-extrabold text-noonYellow mt-1">3 دول كبرى</div>
+            <div class="text-xs text-gray-300 mt-1.5">السعودية، الإمارات، ومصر</div>
+          </div>
+
+          <div class="glass-card glass-card-blue rounded-2xl p-4 sm:p-5 relative overflow-hidden">
+            <div class="absolute top-0 left-0 w-16 h-16 bg-techBlue/10 rounded-br-3xl"></div>
+            <div class="text-xs text-gray-400 font-semibold">مراكز التوزيع والمستودعات</div>
+            <div class="kpi-number text-2xl sm:text-3xl font-extrabold text-techBlue mt-1" dir="ltr">+50 Hubs</div>
+            <div class="text-xs text-gray-300 mt-1.5">مستودعات مركزية و <span dir="ltr">Dark Stores</span></div>
+          </div>
+
+          <div class="glass-card rounded-2xl p-4 sm:p-5 relative overflow-hidden">
+            <div class="absolute top-0 left-0 w-16 h-16 bg-noonYellow/10 rounded-br-3xl"></div>
+            <div class="text-xs text-gray-400 font-semibold">الطاقة الاستيعابية</div>
+            <div class="kpi-number text-2xl sm:text-3xl font-extrabold text-white mt-1" dir="ltr">+100M</div>
+            <div class="text-xs text-gray-300 mt-1.5">منتج مُدار عبر أنظمة <span dir="ltr">WMS</span></div>
+          </div>
+
+          <div class="glass-card glass-card-blue rounded-2xl p-4 sm:p-5 relative overflow-hidden">
+            <div class="absolute top-0 left-0 w-16 h-16 bg-techBlue/10 rounded-br-3xl"></div>
+            <div class="text-xs text-gray-400 font-semibold">سرعة التوصيل القياسية</div>
+            <div class="kpi-number text-2xl sm:text-3xl font-extrabold text-noonYellow mt-1">15 دقيقة</div>
+            <div class="text-xs text-gray-300 mt-1.5">عبر خدمة <span dir="ltr" class="text-techBlue font-bold">Noon Minutes</span></div>
+          </div>
+        </div>
+
+        <!-- 3 ركائز لتحول نون اللوجستي -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <div class="glass-card rounded-2xl p-5 space-y-3 border-t-2 border-t-noonYellow">
+            <div class="w-11 h-11 rounded-xl bg-noonYellow/15 text-noonYellow flex items-center justify-center">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+              </svg>
+            </div>
+            <h3 class="title-font text-lg font-extrabold text-white">بنية لوجستية متكاملة محلياً</h3>
+            <p class="text-sm text-gray-300 leading-relaxed">
+              تأسيس شبكة لوجستية مملوكة بالكامل لشركة نون (<span dir="ltr">Noon Logistics</span>) بدلاً من الاعتماد على وسطاء خارجيين، مما منحها تحكماً لحظياً في المخزون والتسليم.
+            </p>
+          </div>
+
+          <div class="glass-card glass-card-blue rounded-2xl p-5 space-y-3 border-t-2 border-t-techBlue">
+            <div class="w-11 h-11 rounded-xl bg-techBlue/15 text-techBlue flex items-center justify-center">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
+              </svg>
+            </div>
+            <h3 class="title-font text-lg font-extrabold text-white">نظم معلومات الأعمال (<span dir="ltr">BIS</span>)</h3>
+            <p class="text-sm text-gray-300 leading-relaxed">
+              الربط المباشر بين تطبيق المستهلك، وبوابة التجار، وأنظمة تخطيط موارد المؤسسات (<span dir="ltr">ERP</span>) للتنبؤ بالطلب وتوجيه الشحنات آلياً.
+            </p>
+          </div>
+
+          <div class="glass-card rounded-2xl p-5 space-y-3 border-t-2 border-t-noonYellow">
+            <div class="w-11 h-11 rounded-xl bg-noonYellow/15 text-noonYellow flex items-center justify-center">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            </div>
+            <h3 class="title-font text-lg font-extrabold text-white">تنوع نماذج التوصيل</h3>
+            <p class="text-sm text-gray-300 leading-relaxed">
+              توفير مستويات متعددة من الخدمة تشمل <span dir="ltr" class="text-noonYellow font-semibold">Noon Express</span> للتوصيل في نفس اليوم، و <span dir="ltr" class="text-techBlue font-semibold">Noon Minutes</span> للتوصيل الفوري خلال 15 دقيقة.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================= -->
+    <!-- الشريحة 3: رحلة الطلب داخل المستودع (Fulfillment Center) -->
+    <!-- ========================================================= -->
+    <section class="slide" data-title="رحلة الطلب داخل المستودع">
+      <div class="slide-inner space-y-5">
+        <div class="flex flex-col md:flex-row md:items-end justify-between gap-3 border-b border-white/10 pb-3">
+          <div>
+            <span class="text-techBlue text-xs md:text-sm font-extrabold tracking-wide">02 | هندسة العمليات التشغيلية</span>
+            <h2 class="title-font text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white mt-1">
+              رحلة الطلب داخل المستودع (<span dir="ltr" class="text-noonYellow">Fulfillment Center</span>)
+            </h2>
+          </div>
+          <span class="text-xs bg-white/5 border border-white/10 px-3 py-1.5 rounded-lg text-gray-300">
+            اضغط على أي مرحلة لاستعراض تفاصيلها التقنية
+          </span>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-center">
+          <!-- المراحل الأربع التفاعلية -->
+          <div class="lg:col-span-7 grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            <!-- الخطوة 1 -->
+            <div onclick="selectStep(1)" id="step-card-1" class="step-card glass-card rounded-2xl p-4 border-2 border-noonYellow cursor-pointer transition-all">
+              <div class="flex items-center justify-between mb-2">
+                <span class="px-2.5 py-0.5 rounded-md bg-noonYellow text-noonBlack font-extrabold text-xs kpi-number">المرحلة 01</span>
+                <span class="text-xs text-techBlue font-bold" dir="ltr">Inbound & QC</span>
+              </div>
+              <h3 class="title-font text-lg font-extrabold text-white">الاستلام والفحص الرقمي</h3>
+              <p class="text-xs sm:text-sm text-gray-300 mt-1.5 leading-relaxed">
+                مسح الشحنات الواردة من التجار فور وصولها ومطابقة المواصفات والكميات مع أوامر الشراء عبر السكانر الذكي.
+              </p>
+            </div>
+
+            <!-- الخطوة 2 -->
+            <div onclick="selectStep(2)" id="step-card-2" class="step-card glass-card rounded-2xl p-4 border border-white/10 cursor-pointer transition-all">
+              <div class="flex items-center justify-between mb-2">
+                <span class="px-2.5 py-0.5 rounded-md bg-white/10 text-noonYellow font-extrabold text-xs kpi-number">المرحلة 02</span>
+                <span class="text-xs text-techBlue font-bold" dir="ltr">Auto-Sorting</span>
+              </div>
+              <h3 class="title-font text-lg font-extrabold text-white">التخزين والفرز الآلي</h3>
+              <p class="text-xs sm:text-sm text-gray-300 mt-1.5 leading-relaxed">
+                توجيه المنتجات لأقرب رف تخزيني حسب معدل الدوران (<span dir="ltr">ABC Analysis</span>)، ثم التقاطها وفرزها آلياً فور طلب العميل.
+              </p>
+            </div>
+
+            <!-- الخطوة 3 -->
+            <div onclick="selectStep(3)" id="step-card-3" class="step-card glass-card rounded-2xl p-4 border border-white/10 cursor-pointer transition-all">
+              <div class="flex items-center justify-between mb-2">
+                <span class="px-2.5 py-0.5 rounded-md bg-white/10 text-noonYellow font-extrabold text-xs kpi-number">المرحلة 03</span>
+                <span class="text-xs text-techBlue font-bold" dir="ltr">Smart Packaging</span>
+              </div>
+              <h3 class="title-font text-lg font-extrabold text-white">التغليف الذكي والتأمين</h3>
+              <p class="text-xs sm:text-sm text-gray-300 mt-1.5 leading-relaxed">
+                تحديد المقاس الأمثل للكرتونة وإغلاقها بإحكام باستخدام أدوات الشريط اللاصق المبرمجة وطباعة ملصق التتبع.
+              </p>
+            </div>
+
+            <!-- الخطوة 4 -->
+            <div onclick="selectStep(4)" id="step-card-4" class="step-card glass-card rounded-2xl p-4 border border-white/10 cursor-pointer transition-all">
+              <div class="flex items-center justify-between mb-2">
+                <span class="px-2.5 py-0.5 rounded-md bg-white/10 text-noonYellow font-extrabold text-xs kpi-number">المرحلة 04</span>
+                <span class="text-xs text-techBlue font-bold" dir="ltr">Last-Mile Dispatch</span>
+              </div>
+              <h3 class="title-font text-lg font-extrabold text-white">الشحن والتوزيع الذكي</h3>
+              <p class="text-xs sm:text-sm text-gray-300 mt-1.5 leading-relaxed">
+                تجميع الطرود حسب النطاق الجغرافي (<span dir="ltr">Geo-Zoning</span>) وتحميلها في مركبات التوصيل وفق أسرع مسار مروري.
+              </p>
+            </div>
+          </div>
+
+          <!-- المشهد البصري الثلاثي الأبعاد: سكانر الباركود + أداة التغليف -->
+          <div class="lg:col-span-5 glass-card rounded-2xl p-4 flex flex-col items-center justify-between relative overflow-hidden">
+            <div class="w-full flex items-center justify-between text-xs text-gray-400 border-b border-white/10 pb-2">
+              <span class="font-bold text-noonYellow">محطة الفرز والتغليف الآلية</span>
+              <span id="step-status-badge" class="text-techBlue font-bold">نشط: المرحلة 01 - مسح الباركود</span>
+            </div>
+
+            <!-- رسم SVG 3D يجمع سكانر الباركود الليزري وأداة التغليف بالشريط اللاصق -->
+            <svg viewBox="0 0 420 270" class="w-full max-w-[390px] h-auto my-2 overflow-visible" aria-label="سكانر الباركود وأداة التغليف ثلاثية الأبعاد">
+              <defs>
+                <linearGradient id="laserBeamGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stop-color="#FF2A5F" stop-opacity="0.9" />
+                  <stop offset="50%" stop-color="#00A8E8" stop-opacity="0.85" />
+                  <stop offset="100%" stop-color="#FF2A5F" stop-opacity="0.1" />
+                </linearGradient>
+                <linearGradient id="dispenserBody" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="#FEEE00" />
+                  <stop offset="100%" stop-color="#C9B800" />
+                </linearGradient>
+              </defs>
+
+              <!-- سير النقل المتحرك (Conveyor Belt Isometric) -->
+              <polygon points="30,195 275,90 395,142 150,247" fill="#23232B" stroke="#3B3B47" stroke-width="1.5" />
+              <polygon points="30,195 150,247 150,262 30,210" fill="#17171D" />
+              <polygon points="150,247 395,142 395,157 150,262" fill="#1D1D24" />
+              <!-- بكرات السير -->
+              <line x1="75" y1="176" x2="195" y2="228" stroke="#00A8E8" stroke-width="2" stroke-dasharray="6 6" opacity="0.65" />
+              <line x1="130" y1="152" x2="250" y2="204" stroke="#00A8E8" stroke-width="2" stroke-dasharray="6 6" opacity="0.65" />
+              <line x1="185" y1="128" x2="305" y2="180" stroke="#00A8E8" stroke-width="2" stroke-dasharray="6 6" opacity="0.65" />
+
+              <!-- طرد الشحن على السير -->
+              <g>
+                <polygon points="180,118 250,148 180,178 110,148" fill="#FEEE00" />
+                <polygon points="110,148 180,178 180,224 110,194" fill="#D4C500" />
+                <polygon points="250,148 180,178 180,224 250,194" fill="#E6D600" />
+                <!-- ملصق الباركود المستهدف -->
+                <polygon points="132,167 166,182 166,204 132,189" fill="#FFFFFF" />
+                <line x1="138" y1="175" x2="160" y2="185" stroke="#111111" stroke-width="3" />
+                <line x1="138" y1="182" x2="156" y2="190" stroke="#111111" stroke-width="2" />
+              </g>
+
+              <!-- 1. مجسم سكانر الباركود 3D مع شعاع الليزر (يسار) -->
+              <g class="animate-float-3d">
+                <!-- مقبض السكانر -->
+                <polygon points="44,82 64,74 74,118 54,126" fill="#2A2A34" stroke="#FFFFFF" stroke-width="0.6" />
+                <!-- رأس السكانر الأصفر والأسود -->
+                <polygon points="36,54 88,36 102,64 50,82" fill="#FEEE00" />
+                <polygon points="50,82 102,64 106,76 54,94" fill="#18181F" />
+                <!-- عدسة الليزر -->
+                <ellipse cx="98" cy="56" rx="5" ry="10" transform="rotate(-18 98 56)" fill="#00A8E8" />
+                <!-- شعاع الليزر المتحرك -->
+                <g class="animate-laser">
+                  <polygon points="100,54 162,174 142,186" fill="url(#laserBeamGrad)" />
+                  <line x1="100" y1="54" x2="152" y2="180" stroke="#FF2A5F" stroke-width="2" />
+                </g>
+              </g>
+
+              <!-- 2. مجسم أداة التغليف بالشريط اللاصق 3D (يمين) -->
+              <g class="animate-tape">
+                <!-- بكرة الشريط اللاصق الدائرية -->
+                <ellipse cx="318" cy="68" rx="26" ry="26" fill="#FEEE00" stroke="#111111" stroke-width="3" />
+                <ellipse cx="318" cy="68" rx="11" ry="11" fill="#1E1E24" stroke="#00A8E8" stroke-width="2" />
+                <!-- هيكل أداة التغليف اليدوية/الآلية -->
+                <path d="M294,76 L264,116 L282,126 L312,92 Z" fill="url(#dispenserBody)" stroke="#111111" stroke-width="1.5" />
+                <!-- مقبض الأداة -->
+                <rect x="322" y="42" width="38" height="14" rx="6" transform="rotate(-25 322 42)" fill="#2D2D38" stroke="#FEEE00" stroke-width="1" />
+                <!-- شريط لاصق يمتد من البكرة إلى سطح الكرتونة -->
+                <polygon points="270,118 225,138 233,143 278,123" fill="#111111" opacity="0.9" />
+                <line x1="274" y1="120" x2="229" y2="140" stroke="#FEEE00" stroke-width="1.5" />
+              </g>
+            </svg>
+
+            <div id="step-detail-box" class="w-full bg-noonBlack/70 border border-white/10 rounded-xl p-3 text-xs text-gray-200 leading-relaxed">
+              <strong class="text-noonYellow">مؤشر الأداء:</strong> يتم مسح كل قطعة خلال <span class="text-techBlue font-bold kpi-number">0.4 ثانية</span> وتحديث قاعدة بيانات المخزون المركزية لحظياً.
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================= -->
+    <!-- الشريحة 4: تقنيات التغليف الذكي وتقليل الهدر -->
+    <!-- ========================================================= -->
+    <section class="slide" data-title="تقنيات التغليف الذكي">
+      <div class="slide-inner space-y-5">
+        <div class="flex flex-col md:flex-row md:items-end justify-between gap-3 border-b border-white/10 pb-3">
+          <div>
+            <span class="text-noonYellow text-xs md:text-sm font-extrabold">03 | الاستدامة والكفاءة التشغيلية</span>
+            <h2 class="title-font text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white mt-1">
+              تقنيات <span class="text-noonYellow">التغليف الذكي</span> وتقليل الهدر
+            </h2>
+          </div>
+          <div class="flex items-center gap-2 bg-techBlue/15 border border-techBlue/40 px-3.5 py-1.5 rounded-xl text-xs font-bold text-techBlue">
+            <span>خوارزمية</span>
+            <span dir="ltr">Box-on-Demand AI</span>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+          <!-- العمود الأيمن: 3 بطاقات تقنية -->
+          <div class="lg:col-span-7 space-y-3.5">
+            <div class="glass-card rounded-2xl p-4 sm:p-5 flex items-start gap-4">
+              <div class="w-12 h-12 rounded-xl bg-noonYellow text-noonBlack flex items-center justify-center font-extrabold text-lg title-font shrink-0">
+                3D
+              </div>
+              <div>
+                <h3 class="title-font text-lg font-extrabold text-white">تحديد المقاس الأمثل آلياً (<span dir="ltr">Right-Sizing</span>)</h3>
+                <p class="text-sm text-gray-300 mt-1 leading-relaxed">
+                  تقوم خوارزميات <span dir="ltr">WMS</span> بحساب الأبعاد الحجمية والوزن لكل منتج في الطلب لاختيار أصغر كرتونة مناسبة تلقائياً، مما يمنع شحن "الهواء الفارغ".
+                </p>
+              </div>
+            </div>
+
+            <div class="glass-card glass-card-blue rounded-2xl p-4 sm:p-5 flex items-start gap-4">
+              <div class="w-12 h-12 rounded-xl bg-techBlue/20 text-techBlue border border-techBlue/40 flex items-center justify-center font-extrabold text-lg kpi-number shrink-0">
+                -38%
+              </div>
+              <div>
+                <h3 class="title-font text-lg font-extrabold text-white">تقليص هدر الكرتون ومواد الحشو</h3>
+                <p class="text-sm text-gray-300 mt-1 leading-relaxed">
+                  خفض استهلاك الكرتون المقوى بنسبة <span class="text-noonYellow font-bold kpi-number">38%</span>، واستبدال البلاستيك بوسائد هوائية قابلة لإعادة التدوير لحماية المنتجات القابلة للكسر.
+                </p>
+              </div>
+            </div>
+
+            <div class="glass-card rounded-2xl p-4 sm:p-5 flex items-start gap-4">
+              <div class="w-12 h-12 rounded-xl bg-white/10 text-noonYellow flex items-center justify-center shrink-0">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                </svg>
+              </div>
+              <div>
+                <h3 class="title-font text-lg font-extrabold text-white">أشرطة تغليف مقاومة للعبث (<span dir="ltr">Tamper-Evident</span>)</h3>
+                <p class="text-sm text-gray-300 mt-1 leading-relaxed">
+                  استخدام أشرطة لاصقة مدعمة بالألياف ومطبوعة بشعار نون لضمان سلامة الطرد من المستودع حتى يد العميل، وزيادة سعة تحميل شاحنات التوصيل بنسبة <span class="text-techBlue font-bold kpi-number">24%</span>.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- العمود الأيسر: مجسم 3D يوضح مطابقة أبعاد الصندوق وأداة التغليف -->
+          <div class="lg:col-span-5 glass-card rounded-2xl p-5 flex flex-col items-center justify-center relative">
+            <div class="text-xs font-bold text-noonYellow mb-2">محاكاة القياس الحجمي والتغليف الآلي</div>
+            <svg viewBox="0 0 380 310" class="w-full max-w-[350px] h-auto overflow-visible" aria-label="مجسم التغليف الذكي">
+              <!-- خطوط قياس الأبعاد الثلاثية (X, Y, Z) -->
+              <g stroke="#00A8E8" stroke-width="1.5" stroke-dasharray="4 4">
+                <line x1="70" y1="145" x2="190" y2="90" />
+                <line x1="190" y1="90" x2="310" y2="145" />
+                <line x1="322" y1="150" x2="322" y2="245" />
+              </g>
+              <text x="115" y="108" fill="#00A8E8" font-family="Readex Pro, sans-serif" font-size="11" font-weight="700">L: 32cm</text>
+              <text x="255" y="108" fill="#00A8E8" font-family="Readex Pro, sans-serif" font-size="11" font-weight="700">W: 24cm</text>
+              <text x="330" y="202" fill="#00A8E8" font-family="Readex Pro, sans-serif" font-size="11" font-weight="700">H: 18cm</text>
+
+              <!-- الصندوق الذكي -->
+              <g class="animate-float-3d">
+                <!-- الوجه العلوي -->
+                <polygon points="190,104 298,154 190,204 82,154" fill="#FEEE00" />
+                <!-- الوجه الأيسر -->
+                <polygon points="82,154 190,204 190,282 82,232" fill="#D1C200" />
+                <!-- الوجه الأيمن -->
+                <polygon points="298,154 190,204 190,282 298,232" fill="#E8D800" />
+
+                <!-- شريط التغليف الأسود المحكم -->
+                <polygon points="132,131 240,181 252,175 144,125" fill="#111111" />
+                <polygon points="240,181 252,175 252,218 240,224" fill="#1E1E24" />
+
+                <!-- أداة التغليف المتحركة أثناء إغلاق الشريط -->
+                <g class="animate-tape">
+                  <circle cx="136" cy="105" r="22" fill="#1E1E24" stroke="#FEEE00" stroke-width="3.5" />
+                  <circle cx="136" cy="105" r="8" fill="#00A8E8" />
+                  <path d="M136,127 L144,132 L152,126 L146,115 Z" fill="#FEEE00" />
+                </g>
+              </g>
+
+              <!-- شارة التوفير السفلية -->
+              <rect x="85" y="284" width="210" height="24" rx="8" fill="#111111" stroke="#FEEE00" stroke-width="1" />
+              <text x="190" y="300" text-anchor="middle" fill="#FEEE00" font-family="Cairo, sans-serif" font-size="11" font-weight="800">نسبة استغلال الحيز الداخلي: 94.5%</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================= -->
+    <!-- الشريحة 5: تتبع الشحنات بالباركود و RFID -->
+    <!-- ========================================================= -->
+    <section class="slide" data-title="تتبع الشحنات بالباركود و RFID">
+      <div class="slide-inner space-y-5">
+        <div class="flex flex-col md:flex-row md:items-end justify-between gap-3 border-b border-white/10 pb-3">
+          <div>
+            <span class="text-techBlue text-xs md:text-sm font-extrabold">04 | دقة البيانات والتتبع اللحظي</span>
+            <h2 class="title-font text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white mt-1">
+              تتبع الشحنات بتقنيات <span class="text-noonYellow">الباركود</span> و <span dir="ltr" class="text-techBlue">RFID</span>
+            </h2>
+          </div>
+          <div class="bg-noonYellow text-noonBlack px-4 py-1.5 rounded-xl font-extrabold text-xs sm:text-sm kpi-number">
+            دقة توجيه الطلبات: 99.9%
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+          <!-- مجسم سكانر الباركود 3D كبير مع ليزر تفاعلي -->
+          <div class="lg:col-span-5 glass-card glass-card-blue rounded-2xl p-5 flex flex-col items-center justify-center relative">
+            <svg viewBox="0 0 380 310" class="w-full max-w-[350px] h-auto overflow-visible" aria-label="سكانر الباركود ثلاثي الأبعاد يمسح شحنة">
+              <defs>
+                <linearGradient id="bigLaser" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="#FF2A5F" stop-opacity="0.95" />
+                  <stop offset="60%" stop-color="#00A8E8" stop-opacity="0.7" />
+                  <stop offset="100%" stop-color="#00A8E8" stop-opacity="0.05" />
+                </linearGradient>
+              </defs>
+
+              <!-- موجات RFID اللاسلكية -->
+              <g fill="none" stroke="#00A8E8" stroke-width="1.5" opacity="0.55" class="animate-pulse">
+                <path d="M235,175 Q265,155 295,175" />
+                <path d="M225,162 Q265,135 305,162" />
+                <path d="M215,149 Q265,115 315,149" />
+              </g>
+
+              <!-- طرد الشحن مع بطاقة الباركود و RFID -->
+              <g>
+                <polygon points="245,175 335,215 245,255 155,215" fill="#FEEE00" />
+                <polygon points="155,215 245,255 245,302 155,262" fill="#C9BA00" />
+                <polygon points="335,215 245,255 245,302 335,262" fill="#E3D300" />
+
+                <!-- ملصق الباركود على سطح الطرد -->
+                <polygon points="205,205 268,233 242,245 179,217" fill="#FFFFFF" />
+                <line x1="204" y1="212" x2="254" y2="234" stroke="#111111" stroke-width="3" />
+                <line x1="196" y1="217" x2="246" y2="239" stroke="#111111" stroke-width="2" />
+                <line x1="189" y1="221" x2="239" y2="243" stroke="#00A8E8" stroke-width="2.5" />
+              </g>
+
+              <!-- مجسم السكانر الصناعي ثلاثي الأبعاد -->
+              <g class="animate-float-3d">
+                <!-- قاعدة ومقبض السكانر -->
+                <polygon points="56,122 86,110 104,185 74,197" fill="#23232C" stroke="#454554" stroke-width="1" />
+                <!-- زر الزناد الأصفر -->
+                <polygon points="88,125 98,122 102,138 92,141" fill="#FEEE00" />
+                <!-- جسم رأس السكانر العلوي -->
+                <polygon points="42,74 134,42 156,88 64,120" fill="#FEEE00" />
+                <polygon points="64,120 156,88 162,106 70,138" fill="#18181F" />
+                <!-- شاشة حالة خضراء/زرقاء أعلى السكانر -->
+                <polygon points="64,74 114,56 122,72 72,90" fill="#111111" />
+                <line x1="74" y1="78" x2="110" y2="65" stroke="#00A8E8" stroke-width="3" stroke-linecap="round" />
+
+                <!-- عدسة المسح الأمامية -->
+                <polygon points="134,42 156,88 162,106 142,58" fill="#00A8E8" />
+
+                <!-- شعاع الليزر الأحمر/الأزرق المتحرك -->
+                <g class="animate-laser">
+                  <polygon points="148,72 256,225 190,235" fill="url(#bigLaser)" />
+                  <line x1="148" y1="72" x2="225" y2="228" stroke="#FF2A5F" stroke-width="2.5" />
+                </g>
+              </g>
+
+              <!-- بطاقة تأكيد القراءة اللحظية -->
+              <rect x="28" y="232" width="115" height="44" rx="10" fill="#111111" stroke="#00A8E8" stroke-width="1.2" />
+              <text x="85" y="250" text-anchor="middle" fill="#00A8E8" font-family="Readex Pro, sans-serif" font-size="11" font-weight="700">ID: #DXB-88412</text>
+              <text x="85" y="266" text-anchor="middle" fill="#FEEE00" font-family="Cairo, sans-serif" font-size="10" font-weight="700">تم التوجيه بنجاح ✓</text>
+            </svg>
+          </div>
+
+          <!-- تفاصيل التكامل التقني (Barcode + RFID + WMS) -->
+          <div class="lg:col-span-7 grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div class="glass-card rounded-2xl p-4 sm:p-5 border-r-4 border-r-noonYellow">
+              <div class="text-xs text-noonYellow font-extrabold mb-1" dir="ltr">1D / 2D Barcode Scanning</div>
+              <h3 class="title-font text-lg font-extrabold text-white">المسح الضوئي فائق السرعة</h3>
+              <p class="text-sm text-gray-300 mt-2 leading-relaxed">
+                كل قطعة تحمل رمزاً تعريفياً فريداً (<span dir="ltr">SKU / LPN</span>) يُقرأ في كل نقطة تفتيش لمنع الخلط بين الطلبات المتشابهة.
+              </p>
+            </div>
+
+            <div class="glass-card glass-card-blue rounded-2xl p-4 sm:p-5 border-r-4 border-r-techBlue">
+              <div class="text-xs text-techBlue font-extrabold mb-1" dir="ltr">UHF RFID Gates</div>
+              <h3 class="title-font text-lg font-extrabold text-white">بوابات القراءة اللاسلكية الجماعية</h3>
+              <p class="text-sm text-gray-300 mt-2 leading-relaxed">
+                قراءة مئات الطرود دفعة واحدة أثناء مرور منصات التحميل (<span dir="ltr">Pallets</span>) دون الحاجة لخط رؤية مباشر.
+              </p>
+            </div>
+
+            <div class="glass-card rounded-2xl p-4 sm:p-5 sm:col-span-2">
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h3 class="title-font text-lg font-extrabold text-white">كيف نضمن دقة <span class="text-noonYellow kpi-number">99.9%</span>؟</h3>
+                  <p class="text-sm text-gray-300 mt-1">
+                    الربط اللحظي بين قارئات الباركود وقاعدة البيانات السحابية يطلق تنبيهاً صوتياً وضوئياً فورياً عند أي خطأ في الوزن أو المسار قبل إغلاق الطرد.
+                  </p>
+                </div>
+                <div class="flex items-center gap-3 shrink-0 bg-noonBlack/70 px-4 py-3 rounded-xl border border-white/10">
+                  <div class="text-center">
+                    <div class="kpi-number text-xl font-extrabold text-techBlue">0.01%</div>
+                    <div class="text-[11px] text-gray-400">نسبة الفقد</div>
+                  </div>
+                  <div class="w-px h-8 bg-white/15"></div>
+                  <div class="text-center">
+                    <div class="kpi-number text-xl font-extrabold text-noonYellow" dir="ltr">Real-Time</div>
+                    <div class="text-[11px] text-gray-400">تتبع العميل</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================= -->
+    <!-- الشريحة 6: لوحة المؤشرات والأرقام (مخططات بيانية حية Chart.js) -->
+    <!-- ========================================================= -->
+    <section class="slide" data-title="لوحة المؤشرات والأرقام">
+      <div class="slide-inner space-y-4">
+        <div class="flex flex-col md:flex-row md:items-end justify-between gap-2 border-b border-white/10 pb-3">
+          <div>
+            <span class="text-noonYellow text-xs md:text-sm font-extrabold">05 | تحليل البيانات ومؤشرات الأداء (<span dir="ltr">KPIs</span>)</span>
+            <h2 class="title-font text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white mt-1">
+              لوحة المؤشرات والأرقام <span class="text-techBlue">الحية</span>
+            </h2>
+          </div>
+          <button onclick="renderCharts(true)" class="self-start md:self-auto bg-white/10 hover:bg-noonYellow hover:text-noonBlack text-white text-xs font-bold px-3.5 py-1.5 rounded-xl transition-all cursor-pointer">
+            إعادة تحديث الرسوم البيانية ↻
+          </button>
+        </div>
+
+        <!-- شبكة المخططين البيانيين -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
+          <!-- مخطط الأعمدة: مقارنة سرعة التوصيل -->
+          <div class="lg:col-span-7 glass-card rounded-2xl p-4 sm:p-5 flex flex-col justify-between">
+            <div class="flex items-center justify-between mb-2">
+              <div>
+                <h3 class="title-font text-base sm:text-lg font-extrabold text-white">تطور سرعة التوصيل (الزمن بالدقائق - الأقل أسرع)</h3>
+                <p class="text-xs text-gray-400">مقارنة بين التوصيل التقليدي، <span dir="ltr">Noon Express</span>، و <span dir="ltr">Noon Minutes</span></p>
+              </div>
+              <span class="px-2.5 py-1 rounded-lg bg-noonYellow/15 text-noonYellow text-xs font-extrabold kpi-number">15 دقيقة</span>
+            </div>
+            <div class="relative w-full h-52 sm:h-60">
+              <canvas id="deliveryBarChart"></canvas>
+            </div>
+          </div>
+
+          <!-- مخطط الدائرة: توزيع عمليات المستودع -->
+          <div class="lg:col-span-5 glass-card glass-card-blue rounded-2xl p-4 sm:p-5 flex flex-col justify-between">
+            <div class="mb-2">
+              <h3 class="title-font text-base sm:text-lg font-extrabold text-white">توزيع عمليات المستودع الذكي</h3>
+              <p class="text-xs text-gray-400">نسب الجهد التشغيلي والأتمتة داخل مراكز التوزيع</p>
+            </div>
+            <div class="relative w-full h-52 sm:h-60 flex items-center justify-center">
+              <canvas id="warehouseDoughnutChart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- شريط أرقام سريعة أسفل المخططات -->
+        <div class="grid grid-cols-3 gap-3 sm:gap-4">
+          <div class="glass-card rounded-xl p-3 text-center">
+            <div class="kpi-number text-lg sm:text-2xl font-extrabold text-noonYellow">45%</div>
+            <div class="text-xs text-gray-300 font-semibold">الفرز الآلي الذكي</div>
+          </div>
+          <div class="glass-card rounded-xl p-3 text-center">
+            <div class="kpi-number text-lg sm:text-2xl font-extrabold text-techBlue">30%</div>
+            <div class="text-xs text-gray-300 font-semibold">التغليف الذكي المبرمج</div>
+          </div>
+          <div class="glass-card rounded-xl p-3 text-center">
+            <div class="kpi-number text-lg sm:text-2xl font-extrabold text-white">25%</div>
+            <div class="text-xs text-gray-300 font-semibold">الفحص وضبط الجودة</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================= -->
+    <!-- الشريحة 7: خدمة Noon Minutes والمستودعات المصغرة -->
+    <!-- ========================================================= -->
+    <section class="slide" data-title="خدمة Noon Minutes">
+      <div class="slide-inner space-y-5">
+        <div class="flex flex-col md:flex-row md:items-end justify-between gap-3 border-b border-white/10 pb-3">
+          <div>
+            <span class="text-techBlue text-xs md:text-sm font-extrabold">06 | التجارة السريعة (<span dir="ltr">Quick Commerce</span>)</span>
+            <h2 class="title-font text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white mt-1">
+              خدمة <span dir="ltr" class="text-noonYellow">Noon Minutes</span> والتوصيل في 15 دقيقة
+            </h2>
+          </div>
+          <div class="inline-flex items-center gap-2 bg-noonYellow/15 border border-noonYellow/40 px-3.5 py-1.5 rounded-xl text-xs font-extrabold text-noonYellow">
+            <span>نموذج المستودعات المصغرة</span>
+            <span dir="ltr">(Dark Stores)</span>
+          </div>
+        </div>
+
+        <!-- خط سير الـ 15 دقيقة (3 مراحل زمنية) -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div class="glass-card rounded-2xl p-5 border-t-4 border-t-noonYellow relative">
+            <div class="flex items-center justify-between mb-3">
+              <span class="kpi-number text-2xl font-black text-noonYellow">0 - 2 دقيقة</span>
+              <span class="text-xs bg-white/10 px-2.5 py-1 rounded-md text-gray-200">التحضير الفوري</span>
+            </div>
+            <h3 class="title-font text-lg font-extrabold text-white">التقاط الطلب داخل <span dir="ltr">Dark Store</span></h3>
+            <p class="text-sm text-gray-300 mt-2 leading-relaxed">
+              توزيع المستودعات المصغرة داخل الأحياء السكنية، وترتيب الأرفف حسب خوارزميات الارتباط الشرائي لجمع الطلب في أقل من 120 ثانية.
+            </p>
+          </div>
+
+          <div class="glass-card glass-card-blue rounded-2xl p-5 border-t-4 border-t-techBlue relative">
+            <div class="flex items-center justify-between mb-3">
+              <span class="kpi-number text-2xl font-black text-techBlue">2 - 4 دقائق</span>
+              <span class="text-xs bg-white/10 px-2.5 py-1 rounded-md text-gray-200">التسليم للمندوب</span>
+            </div>
+            <h3 class="title-font text-lg font-extrabold text-white">التغليف السريع والإسناد الآلي</h3>
+            <p class="text-sm text-gray-300 mt-2 leading-relaxed">
+              إسناد الطلب تلقائياً لأقرب دراجة توصيل متاحة عند بوابة المستودع المصغر قبل انتهاء موظف التجهيز من مسح آخر منتج.
+            </p>
+          </div>
+
+          <div class="glass-card rounded-2xl p-5 border-t-4 border-t-noonYellow relative">
+            <div class="flex items-center justify-between mb-3">
+              <span class="kpi-number text-2xl font-black text-noonYellow">4 - 15 دقيقة</span>
+              <span class="text-xs bg-white/10 px-2.5 py-1 rounded-md text-gray-200">الميل الأخير</span>
+            </div>
+            <h3 class="title-font text-lg font-extrabold text-white">التوجيه الذكي لنطاق <span dir="ltr">3 كم</span></h3>
+            <p class="text-sm text-gray-300 mt-2 leading-relaxed">
+              تحديد المسار الأمثل عبر خرائط التوجيه اللحظي ضمن نطاق جغرافي لا يتجاوز 3 كيلومترات لضمان الوصول خلال 15 دقيقة.
+            </p>
+          </div>
+        </div>
+
+        <!-- بطاقة دور نظم معلومات الأعمال في التنبؤ بالطلب -->
+        <div class="glass-card rounded-2xl p-5 flex flex-col md:flex-row items-center justify-between gap-4 border border-techBlue/30">
+          <div class="space-y-1">
+            <h4 class="title-font text-base sm:text-lg font-extrabold text-techBlue">
+              كيف تتنبأ نون بطلبات كل حي قبل حدوثها؟
+            </h4>
+            <p class="text-sm text-gray-300 leading-relaxed">
+              تعتمد <span dir="ltr">Noon Minutes</span> على تحليل البيانات الضخمة (<span dir="ltr">Predictive Analytics</span>) لتزويد كل مستودع مصغر بالسلع الأكثر طلباً في منطقته حسب التوقيت والمواسم، مما يرفع معدل توفر الأصناف إلى <span class="text-noonYellow font-bold kpi-number">98.7%</span>.
+            </p>
+          </div>
+          <div class="shrink-0 bg-noonYellow text-noonBlack px-5 py-3 rounded-xl text-center">
+            <div class="kpi-number text-2xl font-black">15 Min</div>
+            <div class="text-xs font-extrabold">معيار السرعة الفائقة</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================= -->
+    <!-- الشريحة 8: الخلاصة والرؤية المستقبلية -->
+    <!-- ========================================================= -->
+    <section class="slide" data-title="الخلاصة والرؤية المستقبلية">
+      <div class="slide-inner space-y-5">
+        <div class="flex flex-col md:flex-row md:items-end justify-between gap-3 border-b border-white/10 pb-3">
+          <div>
+            <span class="text-noonYellow text-xs md:text-sm font-extrabold">07 | آفاق الابتكار اللوجستي</span>
+            <h2 class="title-font text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white mt-1">
+              الخلاصة والرؤية المستقبلية لمستودعات <span class="text-noonYellow">نون</span>
+            </h2>
+          </div>
+          <span class="text-xs text-techBlue font-bold bg-techBlue/10 border border-techBlue/30 px-3 py-1.5 rounded-xl" dir="ltr">
+            AI • Robotics • Smart BIS
+          </span>
+        </div>
+
+        <!-- 3 محاور مستقبلية -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div class="glass-card rounded-2xl p-5 space-y-2.5">
+            <div class="w-10 h-10 rounded-xl bg-noonYellow text-noonBlack flex items-center justify-center font-black title-font">01</div>
+            <h3 class="title-font text-lg font-extrabold text-white">الروبوتات ذاتية الحركة (<span dir="ltr">AMRs</span>)</h3>
+            <p class="text-sm text-gray-300 leading-relaxed">
+              التوسع في نشر أساطيل الروبوتات داخل مراكز التوزيع لنقل الأرفف إلى محطات التغليف آلياً، مما يضاعف إنتاجية الفرز بمقدار <span class="text-noonYellow font-bold kpi-number">3 أضعاف</span>.
+            </p>
+          </div>
+
+          <div class="glass-card glass-card-blue rounded-2xl p-5 space-y-2.5">
+            <div class="w-10 h-10 rounded-xl bg-techBlue text-noonBlack flex items-center justify-center font-black title-font">02</div>
+            <h3 class="title-font text-lg font-extrabold text-white">الذكاء الاصطناعي التوليدي والتنبؤي</h3>
+            <p class="text-sm text-gray-300 leading-relaxed">
+              تطوير نماذج تعلم آلي للتنبؤ بسلاسل الإمداد وإدارة المخزون الاستباقي وتقليل المرتجعات اللوجستية قبل شحن الطلبات.
+            </p>
+          </div>
+
+          <div class="glass-card rounded-2xl p-5 space-y-2.5">
+            <div class="w-10 h-10 rounded-xl bg-white text-noonBlack flex items-center justify-center font-black title-font">03</div>
+            <h3 class="title-font text-lg font-extrabold text-white">اللوجستيات الخضراء والتوصيل الذاتي</h3>
+            <p class="text-sm text-gray-300 leading-relaxed">
+              التحول نحو التغليف القابل للتحلل الحيوي بنسبة <span class="text-techBlue font-bold kpi-number">100%</span> واستخدام المركبات الكهربائية والدرونز في التوصيل الحضري.
+            </p>
+          </div>
+        </div>
+
+        <!-- بطاقة الخاتمة والتوثيق الأكاديمي -->
+        <div class="glass-card rounded-2xl p-5 sm:p-6 border-2 border-noonYellow/50 bg-gradient-to-l from-noonYellow/10 via-noonSlate/90 to-noonSlate/95 flex flex-col md:flex-row items-center justify-between gap-4">
+          <div class="space-y-1.5 text-center md:text-right">
+            <div class="inline-block px-3 py-0.5 rounded-full bg-noonYellow text-noonBlack text-xs font-extrabold">
+              الخلاصة التنفيذية
+            </div>
+            <h3 class="title-font text-xl sm:text-2xl font-extrabold text-white">
+              نظم المعلومات الذكية هي المحرك الحقيقي لريادة <span class="text-noonYellow">نون</span> اللوجستية
+            </h3>
+            <p class="text-xs sm:text-sm text-gray-300">
+              تكامل <span dir="ltr">WMS</span>، التغليف الذكي، وتقنيات <span dir="ltr">Barcode / RFID</span> يمثل نموذجاً رائداً لتطبيقات نظم معلومات الأعمال في المنطقة العربية.
+            </p>
+          </div>
+
+          <div class="shrink-0 bg-noonBlack/80 border border-white/15 rounded-2xl px-5 py-3.5 text-center md:text-right min-w-[230px]">
+            <div class="text-xs text-gray-400">إعداد وتقديم</div>
+            <div class="title-font text-lg font-extrabold text-noonYellow">أحمد صلاح</div>
+            <div class="text-xs font-bold text-techBlue mt-0.5">نظم معلومات الأعمال (<span dir="ltr">BIS</span>)</div>
+            <button onclick="goToSlide(0)" class="mt-2.5 w-full bg-white/10 hover:bg-noonYellow hover:text-noonBlack text-white text-xs font-bold py-1.5 px-3 rounded-lg transition-all cursor-pointer">
+              العودة للبداية ↺
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- شريط التنقل السفلي العائم -->
+  <footer class="fixed bottom-3 right-0 left-0 z-40 px-4 flex items-center justify-center pointer-events-none">
+    <div class="pointer-events-auto bg-noonSlate/90 backdrop-blur-xl border border-white/15 px-3 py-2 rounded-2xl shadow-2xl flex items-center gap-2 sm:gap-3">
+      <button id="btn-prev" onclick="prevSlide()" class="px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/15 disabled:opacity-35 disabled:pointer-events-none text-white text-xs sm:text-sm font-bold flex items-center gap-1.5 transition-all cursor-pointer">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+        </svg>
+        <span>السابق</span>
+      </button>
+
+      <!-- مؤشرات النقاط السريعة للشرائح الثمانية -->
+      <div id="dots-container" class="flex items-center gap-1.5 px-1"></div>
+
+      <button id="btn-next" onclick="nextSlide()" class="px-4 py-2 rounded-xl bg-noonYellow hover:bg-yellow-300 disabled:opacity-35 disabled:pointer-events-none text-noonBlack text-xs sm:text-sm font-extrabold flex items-center gap-1.5 transition-all shadow-md shadow-noonYellow/20 cursor-pointer">
+        <span>التالي</span>
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+        </svg>
+      </button>
+    </div>
+  </footer>
+
+  <!-- منطق العرض التفاعلي، الرسوم البيانية، وتأثيرات 3D -->
+  <script>
+    const slides = Array.from(document.querySelectorAll('.slide'));
+    const totalSlides = slides.length;
+    let currentSlideIndex = 0;
+    let barChartInstance = null;
+    let doughnutChartInstance = null;
+
+    // تهيئة عناصر التنقل والفهرس
+    function initNavigation() {
+      const dotsContainer = document.getElementById('dots-container');
+      const drawerList = document.getElementById('drawer-list');
+
+      slides.forEach((slide, idx) => {
+        const title = slide.getAttribute('data-title') || `الشريحة ${idx + 1}`;
+
+        // إنشاء نقاط التنقل السفلية
+        const dot = document.createElement('button');
+        dot.setAttribute('aria-label', title);
+        dot.className = `h-2.5 rounded-full transition-all cursor-pointer ${idx === 0 ? 'w-7 bg-noonYellow' : 'w-2.5 bg-white/25 hover:bg-white/50'}`;
+        dot.onclick = () => goToSlide(idx);
+        dotsContainer.appendChild(dot);
+
+        // إنشاء عناصر الفهرس الجانبي
+        const item = document.createElement('button');
+        item.className = `w-full text-right px-3.5 py-2.5 rounded-xl text-sm font-bold flex items-center justify-between transition-all cursor-pointer ${idx === 0 ? 'bg-noonYellow text-noonBlack' : 'bg-white/5 text-gray-200 hover:bg-white/10'}`;
+        item.innerHTML = `
+          <span class="truncate">${idx + 1}. ${title}</span>
+          <span class="text-xs opacity-75 kpi-number">0${idx + 1}</span>
+        `;
+        item.onclick = () => {
+          goToSlide(idx);
+          toggleDrawer(false);
+        };
+        drawerList.appendChild(item);
+      });
+
+      updateUI();
+    }
+
+    // الانتقال إلى شريحة محددة
+    function goToSlide(index) {
+      if (index < 0 || index >= totalSlides || index === currentSlideIndex) return;
+
+      slides.forEach((s, i) => {
+        s.classList.remove('active', 'prev');
+        if (i < index) {
+          s.classList.add('prev');
+        }
+      });
+
+      currentSlideIndex = index;
+      slides[currentSlideIndex].classList.add('active');
+      updateUI();
+
+      // تشغيل الرسوم البيانية الحية عند الوصول للشريحة السادسة (index 5)
+      if (currentSlideIndex === 5) {
+        setTimeout(() => renderCharts(true), 180);
+      }
+    }
+
+    function nextSlide() {
+      if (currentSlideIndex < totalSlides - 1) {
+        goToSlide(currentSlideIndex + 1);
+      }
+    }
+
+    function prevSlide() {
+      if (currentSlideIndex > 0) {
+        goToSlide(currentSlideIndex - 1);
+      }
+    }
+
+    // تحديث شريط التقدم والعداد والأزرار
+    function updateUI() {
+      const progress = ((currentSlideIndex + 1) / totalSlides) * 100;
+      document.getElementById('top-progress-bar').style.width = `${progress}%`;
+      document.getElementById('slide-counter').textContent = `${currentSlideIndex + 1} / ${totalSlides}`;
+
+      const currentTitle = slides[currentSlideIndex].getAttribute('data-title');
+      document.getElementById('current-slide-label').textContent = currentTitle;
+
+      document.getElementById('btn-prev').disabled = currentSlideIndex === 0;
+      document.getElementById('btn-next').disabled = currentSlideIndex === totalSlides - 1;
+
+      // تحديث النقاط السفلية
+      const dots = document.getElementById('dots-container').children;
+      Array.from(dots).forEach((dot, idx) => {
+        dot.className = `h-2.5 rounded-full transition-all cursor-pointer ${idx === currentSlideIndex ? 'w-7 bg-noonYellow' : 'w-2.5 bg-white/25 hover:bg-white/50'}`;
+      });
+
+      // تحديث الفهرس الجانبي
+      const drawerItems = document.getElementById('drawer-list').children;
+      Array.from(drawerItems).forEach((item, idx) => {
+        item.className = `w-full text-right px-3.5 py-2.5 rounded-xl text-sm font-bold flex items-center justify-between transition-all cursor-pointer ${idx === currentSlideIndex ? 'bg-noonYellow text-noonBlack' : 'bg-white/5 text-gray-200 hover:bg-white/10'}`;
+      });
+    }
+
+    // فتح/إغلاق قائمة الفهرس
+    function toggleDrawer(forceState) {
+      const drawer = document.getElementById('slide-drawer');
+      const isOpen = !drawer.classList.contains('-translate-x-full');
+      const nextState = typeof forceState === 'boolean' ? forceState : !isOpen;
+
+      if (nextState) {
+        drawer.classList.remove('-translate-x-full', 'opacity-0', 'pointer-events-none');
+      } else {
+        drawer.classList.add('-translate-x-full', 'opacity-0', 'pointer-events-none');
+      }
+    }
+
+    // تفعيل/إلغاء ملء الشاشة
+    function toggleFullscreen() {
+      const enterIcon = document.getElementById('icon-fs-enter');
+      const exitIcon = document.getElementById('icon-fs-exit');
+
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().then(() => {
+          enterIcon.classList.add('hidden');
+          exitIcon.classList.remove('hidden');
+        }).catch(() => {});
+      } else {
+        document.exitFullscreen().then(() => {
+          exitIcon.classList.add('hidden');
+          enterIcon.classList.remove('hidden');
+        }).catch(() => {});
+      }
+    }
+
+    // التفاعل مع مراحل رحلة الطلب في الشريحة 3
+    const stepDetails = {
+      1: {
+        badge: 'نشط: المرحلة 01 - مسح الباركود',
+        text: '<strong class="text-noonYellow">مؤشر الأداء:</strong> يتم مسح كل قطعة خلال <span class="text-techBlue font-bold kpi-number">0.4 ثانية</span> وتحديث قاعدة بيانات المخزون المركزية لحظياً.'
+      },
+      2: {
+        badge: 'نشط: المرحلة 02 - الفرز الآلي',
+        text: '<strong class="text-noonYellow">خوارزمية الفرز:</strong> توجيه الطلبات عبر السيور الذكية بسرعة <span class="text-techBlue font-bold kpi-number">12,000 طرد/ساعة</span> نحو بوابات التغليف.'
+      },
+      3: {
+        badge: 'نشط: المرحلة 03 - التغليف الذكي',
+        text: '<strong class="text-noonYellow">تأمين الشحنة:</strong> اختيار مقاس الكرتونة آلياً وتثبيت شريط نون اللاصق مع تقليل الهدر بنسبة <span class="text-techBlue font-bold kpi-number">38%</span>.'
+      },
+      4: {
+        badge: 'نشط: المرحلة 04 - الشحن والتوزيع',
+        text: '<strong class="text-noonYellow">الميل الأخير:</strong> جدولة مسارات التوصيل بالذكاء الاصطناعي لتحقيق التزام بالتسليم يتجاوز <span class="text-techBlue font-bold kpi-number">99.2%</span>.'
+      }
+    };
+
+    function selectStep(stepNum) {
+      for (let i = 1; i <= 4; i++) {
+        const card = document.getElementById(`step-card-${i}`);
+        const badge = card.querySelector('span');
+        if (i === stepNum) {
+          card.classList.remove('border', 'border-white/10');
+          card.classList.add('border-2', 'border-noonYellow');
+          badge.classList.remove('bg-white/10', 'text-noonYellow');
+          badge.classList.add('bg-noonYellow', 'text-noonBlack');
+        } else {
+          card.classList.remove('border-2', 'border-noonYellow');
+          card.classList.add('border', 'border-white/10');
+          badge.classList.remove('bg-noonYellow', 'text-noonBlack');
+          badge.classList.add('bg-white/10', 'text-noonYellow');
+        }
+      }
+      document.getElementById('step-status-badge').textContent = stepDetails[stepNum].badge;
+      document.getElementById('step-detail-box').innerHTML = stepDetails[stepNum].text;
+    }
+
+    // رسم وتحديث المخططات البيانية الحية (Chart.js) في الشريحة 6
+    // رسم وتحديث المخططات البيانية الحية بمظهر Executive Dashboard احترافي
+    function renderCharts(forceRecreate = false) {
+      const barCanvas = document.getElementById('deliveryBarChart');
+      const doughnutCanvas = document.getElementById('warehouseDoughnutChart');
+      if (!barCanvas || !doughnutCanvas || typeof Chart === 'undefined') return;
+
+      if (forceRecreate) {
+        if (barChartInstance) barChartInstance.destroy();
+        if (doughnutChartInstance) doughnutChartInstance.destroy();
+      }
+
+      Chart.defaults.color = '#E5E7EB';
+      Chart.defaults.font.family = "'Readex Pro', 'IBM Plex Sans Arabic', sans-serif";
+
+      const barCtx = barCanvas.getContext('2d');
+
+      // إنشاء تدرجات لونية احترافية للأعمدة
+      const gradGray = barCtx.createLinearGradient(0, 0, 0, 260);
+      gradGray.addColorStop(0, 'rgba(156, 163, 175, 0.75)');
+      gradGray.addColorStop(1, 'rgba(75, 85, 99, 0.15)');
+
+      const gradBlue = barCtx.createLinearGradient(0, 0, 0, 260);
+      gradBlue.addColorStop(0, '#00A8E8');
+      gradBlue.addColorStop(1, 'rgba(0, 168, 232, 0.15)');
+
+      const gradYellow = barCtx.createLinearGradient(0, 0, 0, 260);
+      gradYellow.addColorStop(0, '#FEEE00');
+      gradYellow.addColorStop(1, 'rgba(254, 238, 0, 0.18)');
+
+      // بلجن مخصص لكتابة الأرقام والوقت فوق كل عمود مباشرة
+      const topLabelsPlugin = {
+        id: 'topLabels',
+        afterDatasetsDraw(chart) {
+          const { ctx } = chart;
+          const timeTags = ['24 ساعة', 'ساعتان', '15 دقيقة'];
+          chart.getDatasetMeta(0).data.forEach((bar, index) => {
+            ctx.save();
+            ctx.font = "800 13px 'Readex Pro', sans-serif";
+            ctx.fillStyle = index === 2 ? '#FEEE00' : (index === 1 ? '#00A8E8' : '#D1D5DB');
+            ctx.textAlign = 'center';
+            ctx.fillText(timeTags[index], bar.x, bar.y - 10);
+            ctx.restore();
+          });
+        }
+      };
+
+      // 1. مخطط الأعمدة: مؤشر سرعة الاستجابة والتوصيل
+      barChartInstance = new Chart(barCtx, {
+        type: 'bar',
+        plugins: [topLabelsPlugin],
+        data: {
+          labels: ['التوصيل التقليدي', 'Noon Express', 'Noon Minutes'],
+          datasets: [{
+            label: 'مؤشر كفاءة السرعة',
+            data: [18, 68, 98],
+            backgroundColor: [gradGray, gradBlue, gradYellow],
+            borderColor: ['#9CA3AF', '#00A8E8', '#FEEE00'],
+            borderWidth: 2,
+            borderRadius: { topLeft: 12, topRight: 12 },
+            borderSkipped: false,
+            barPercentage: 0.48
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          layout: { padding: { top: 28 } },
+          animation: { duration: 1200, easing: 'easeOutQuart' },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              rtl: true,
+              backgroundColor: '#111111',
+              titleColor: '#FEEE00',
+              bodyColor: '#FFFFFF',
+              borderColor: '#FEEE00',
+              borderWidth: 1,
+              padding: 12,
+              callbacks: {
+                label: (ctx) => ` مؤشر السرعة: ${ctx.raw}%`
+              }
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              max: 110,
+              grid: { color: 'rgba(255, 255, 255, 0.06)', drawBorder: false },
+              ticks: {
+                stepSize: 25,
+                callback: (val) => val <= 100 ? `${val}%` : ''
+              }
+            },
+            x: {
+              grid: { display: false },
+              ticks: { font: { weight: '700', size: 12 }, color: '#FFFFFF' }
+            }
+          }
+        }
+      });
+
+      // 2. مخطط الدائرة المجوفة (Doughnut) مع رقم مركزي في المنتصف
+      const centerTextPlugin = {
+        id: 'centerText',
+        afterDraw(chart) {
+          const { ctx, chartArea: { left, right, top, bottom } } = chart;
+          const centerX = (left + right) / 2;
+          const centerY = (top + bottom) / 2;
+          ctx.save();
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.font = "900 22px 'Readex Pro', sans-serif";
+          ctx.fillStyle = '#FEEE00';
+          ctx.fillText('100%', centerX, centerY - 8);
+          ctx.font = "600 11px 'IBM Plex Sans Arabic', sans-serif";
+          ctx.fillStyle = '#9CA3AF';
+          ctx.fillText('كفاءة الأتمتة', centerX, centerY + 12);
+          ctx.restore();
+        }
+      };
+
+      doughnutChartInstance = new Chart(doughnutCanvas.getContext('2d'), {
+        type: 'doughnut',
+        plugins: [centerTextPlugin],
+        data: {
+          labels: ['الفرز الآلي (45%)', 'التغليف الذكي (30%)', 'الفحص والجودة (25%)'],
+          datasets: [{
+            data: [45, 30, 25],
+            backgroundColor: ['#FEEE00', '#00A8E8', '#3B3B48'],
+            borderColor: '#18181F',
+            borderWidth: 4,
+            hoverOffset: 10,
+            borderRadius: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: '70%',
+          animation: { animateRotate: true, animateScale: true, duration: 1250 },
+          plugins: {
+            legend: {
+              position: 'bottom',
+              rtl: true,
+              labels: {
+                padding: 14,
+                usePointStyle: true,
+                pointStyle: 'rectRounded',
+                font: { size: 12, weight: '700' },
+                color: '#E5E7EB'
+              }
+            },
+            tooltip: {
+              rtl: true,
+              backgroundColor: '#111111',
+              titleColor: '#FEEE00',
+              bodyColor: '#FFFFFF',
+              borderColor: '#00A8E8',
+              borderWidth: 1,
+              padding: 12,
+              callbacks: {
+                label: (ctx) => ` الحصة التشغيلية: ${ctx.raw}%`
+              }
+            }
+          }
+        }
+      });
+    }
+
+    // التحكم عبر لوحة المفاتيح (مع مراعاة اتجاه العربية RTL)
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowLeft' || e.key === ' ' || e.key === 'PageDown') {
+        e.preventDefault();
+        nextSlide();
+      } else if (e.key === 'ArrowRight' || e.key === 'PageUp') {
+        e.preventDefault();
+        prevSlide();
+      } else if (e.key === 'Home') {
+        e.preventDefault();
+        goToSlide(0);
+      } else if (e.key === 'End') {
+        e.preventDefault();
+        goToSlide(totalSlides - 1);
+      } else if (e.key === 'Escape') {
+        toggleDrawer(false);
+      }
+    });
+
+    // دعم السحب باللمس للهواتف والأجهزة اللوحية
+    let touchStartX = 0;
+    document.addEventListener('touchstart', (e) => {
+      touchStartX = e.changedTouches[0].screenX;
+    }, { passive: true });
+
+    document.addEventListener('touchend', (e) => {
+      const touchEndX = e.changedTouches[0].screenX;
+      const diff = touchEndX - touchStartX;
+      if (Math.abs(diff) > 55) {
+        // في الواجهة العربية RTL: السحب لليمين ينتقل للشريحة التالية
+        if (diff > 0) {
+          nextSlide();
+        } else {
+          prevSlide();
+        }
+      }
+    }, { passive: true });
+
+    // تأثير إمالة ثلاثية الأبعاد خفيفة على البطاقات عند تمرير المؤشر (Desktop)
+    document.querySelectorAll('.glass-card').forEach((card) => {
+      card.addEventListener('mousemove', (e) => {
+        if (window.innerWidth < 1024) return;
+        const rect = card.getBoundingClientRect();
+        const x = (e.clientX - rect.left) / rect.width - 0.5;
+        const y = (e.clientY - rect.top) / rect.height - 0.5;
+        card.style.transform = `perspective(900px) rotateY(${x * 5}deg) rotateX(${-y * 5}deg) translateY(-2px)`;
+      });
+      card.addEventListener('mouseleave', () => {
+        card.style.transform = '';
+      });
+    });
+
+    // تهيئة العرض عند تحميل الصفحة
+    window.addEventListener('DOMContentLoaded', () => {
+      initNavigation();
+    });
+  </script>
+</body>
+</html>
